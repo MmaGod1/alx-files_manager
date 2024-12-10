@@ -48,15 +48,23 @@ class FilesController {
       name,
       type,
       isPublic,
-      parentId: parentId === 0 ? '0' : ObjectID(parentId),
+      parentId: parentId === 0 ? null : ObjectID(parentId),
     };
 
     if (type === 'folder') {
       const result = await dbClient.db.collection('files').insertOne(fileDocument);
-      return res.status(201).json({ id: result.insertedId, ...fileDocument });
+      const response = {
+        id: result.insertedId,
+        userId: fileDocument.userId,
+        name: fileDocument.name,
+        type: fileDocument.type,
+        isPublic: fileDocument.isPublic,
+        parentId: fileDocument.parentId === null ? '0' : fileDocument.parentId.toString(),
+      };
+      return res.status(201).json(response);
     }
 
-    const folderPath = process.env.FOLDER_PATH || '/tmp/files_manager';
+    const folderPath = process.env.FOLDER_PATH?.trim() || '/tmp/files_manager';
     await fsPromises.mkdir(folderPath, { recursive: true });
 
     const localPath = path.join(folderPath, uuidv4());
