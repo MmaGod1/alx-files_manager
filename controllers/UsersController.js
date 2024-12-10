@@ -20,7 +20,7 @@ class UsersController {
 
       const userExists = await usersCollection.findOne({ email });
       if (userExists) {
-        return res.status(400).json({ error: 'Already exists' });
+        return res.status(400).json({ error: 'Already exist' });
       }
 
       const hashpwd = sha1(password);
@@ -30,12 +30,10 @@ class UsersController {
         password: hashpwd,
       });
 
-      const newUser = {
-        id: insertUser.insertedId,
+      return res.status(201).json({
+        id: insertUser.insertedId.toString(),
         email,
-      };
-
-      return res.status(201).json(newUser);
+      });
     } catch (err) {
       console.log(`Error creating user: ${err}`);
       return res.status(500).json({ error: 'Internal Server Error' });
