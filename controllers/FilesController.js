@@ -5,7 +5,6 @@ import path from 'path';
 import mime from 'mime-types';
 import dbClient from '../utils/db';
 import redisClient from '../utils/redis';
-import  uuid from 'uuid';
 
 class FilesController {
   static async getShow(req, res) {
@@ -99,45 +98,30 @@ class FilesController {
       }
     }
 
+    const fileDocument = {
+      userId: ObjectID(userId),
+      name,
+      type,
+      isPublic,
+      parentId: parentId === 0 ? '0' : ObjectID(parentId),
+    };
+
     if (type === 'folder') {
-      const newFolder = {
-        userId,
-        name,
-        type,
-        parentId,
-        isPublic,
-      };
-      const result = await dbClient.db.collection('files').insertOne(newFolder);
-      return res.status(201).json(result.ops[0]);
+      const result = await dbClient.db.collection('files').insertOne(fileDocument);
+      return res.status(201).json({ id: result.insertedId, ...fileDocument });
     }
 
-    if (['file', 'image'].includes(type)) {
-      const folderPath = process.env.FOLDER_PATH || '/tmp/files_manager';
-      if (!fs.existsSync(folderPath)) {
-        fs.mkdirSync(folderPath, { recursive: true });
-      }
+    const folderPath = process.env.FOLDER_PATH || '/tmp/files_manager';
+    await fsPromises.mkdir(folderPath, { recursive: true });
 
-      const fileName = uuid.v4();
-      const filePath = path.join(folderPath, fileName);
+    const localPath = path.join(folderPath, uuidv4());
+    await fsPromises.writeFile(localPath, Buffer.from(data, 'base64'));
 
-      const fileBuffer = Buffer.from(data, 'base64');
-      fs.writeFileSync(filePath, fileBuffer);
+    fileDocument.localPath = localPath;
 
-      const newFile = {
-        userId,
-        name,
-        type,
-        parentId,
-        isPublic,
-        localPath: filePath,
-      };
-
-      const result = await dbClient.db.collection('files').insertOne(newFile);
-      return res.status(201).json(result.ops[0]);
-    }
+    const result = await dbClient.db.collection('files').insertOne(fileDocument);
+    return res.status(201).json({ id: result.insertedId, ...fileDocument });
   }
-
-
 
   static async putPublish(req, res) {
     const token = req.header('X-Token');
